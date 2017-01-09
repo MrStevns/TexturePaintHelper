@@ -1,7 +1,8 @@
 # TexturePaintHelper
 A blender addon that enables a pie menu for texture painting
 
-![pie](https://cloud.githubusercontent.com/assets/1045397/21777266/6a1c06b6-d69e-11e6-8e9b-80f99ab15034.png)
+![pie](https://cloud.githubusercontent.com/assets/1045397/21777472/4dfa1120-d69f-11e6-9d29-4bc35fb3eb06.png)
+
 
 ###How to use:   
 Go into Texture Paint mode and press **W**   
