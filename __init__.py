@@ -60,7 +60,7 @@ def unregister():
         wm.keyconfigs.addon.keymaps.remove(km)
     # clear the list
     addon_keymaps.clear()
-    bpy.utils.unregister(__name__)
+    bpy.utils.unregister_module(__name__)
 
 if __name__ == "__main__":
     register()
