@@ -1,8 +1,8 @@
 import bpy
 import os
-from bpy.types import Menu
+from bpy.types import Menu, UnifiedPaintSettings
 from bpy.props import IntProperty
-import time
+from mathutils import Vector
 
 class EraseBrushOP(bpy.types.Operator):
     bl_label = "Add erase brush to brushes"
@@ -28,6 +28,7 @@ class EraseBrushOP(bpy.types.Operator):
             use_brush.icon_filepath = brushIconPath + "erase_brush.png"
             use_brush.use_pressure_strength = False
             use_brush.strength = 1.0
+
 
         context.scene.tool_settings.unified_paint_settings.use_pressure_size = False
 
@@ -123,7 +124,8 @@ class TexturePaintHelper(Menu):
     # label is displayed at the center of the pie menu.
     bl_label = "Texture paint"
     bl_idname = "paint.image_paint"
-
+    n = 0
+    stepper = 0.005
     def brush_hardness_updater(self,context):
         aType = bpy.context.area.type
         toolsettings = bpy.context.tool_settings 
@@ -148,6 +150,42 @@ class TexturePaintHelper(Menu):
         bpy.ops.brush.curve_preset(shape='LINE')
         bpy.data.brushes[brush.name].curve.curves[0].points.new(valX, valY)
         bpy.data.brushes[brush.name].curve.update()
+
+    def brush_radiusSetAA(self, context):
+        toolsettings = bpy.context.tool_settings 
+        mode = bpy.context.mode
+        if mode == 'PAINT_TEXTURE' or aType == 'IMAGE_EDITOR':
+            brush = toolsettings.image_paint.brush
+        if mode == 'SCULPT':
+           brush = toolsettings.sculpt.brush
+        if mode == 'PAINT_WEIGHT':
+            brush = toolsettings.weight_paint.brush
+        if mode == 'PAINT_VERTEX':
+            brush = toolsettings.vertex_paint.brush  
+        uniPaintSettings = context.tool_settings.unified_paint_settings
+        
+        bpy.ops.brush.curve_preset(shape='LINE')
+        
+        if TexturePaintHelper.n < brush.radius - 50:
+            TexturePaintHelper.n = TexturePaintHelper.n + 0.5
+            print(TexturePaintHelper.n)
+        else:
+            TexturePaintHelper.n = brush.radius +2.5
+        valTopX = float(brush.radius/TexturePaintHelper.n)   
+        if valTopX < 0.990:
+            valMidX = valTopX + TexturePaintHelper.stepper
+            valMidY = 0.55
+        else:
+            valMidY = 0
+            valMidX = 1.0
+            valTopX = 0.999
+            TexturePaintHelper.stepper = 0
+
+        bpy.data.brushes[brush.name].curve.curves[0].points.new(valTopX, 1.0)
+        bpy.data.brushes[brush.name].curve.curves[0].points.new(valMidX, valMidY)
+
+        bpy.data.brushes[brush.name].curve.update()
+        uniPaintSettings.size = brush.radius
     
     bpy.types.Brush.hardness = bpy.props.IntProperty(
     name = 'Brush Hardness',
@@ -155,6 +193,14 @@ class TexturePaintHelper(Menu):
     default = 50,
     description = 'Changes the softness of the brush via the brush curve',
     update= brush_hardness_updater
+    )
+
+    bpy.types.Brush.radius = bpy.props.IntProperty(
+    name = 'AA adjustness to brush size',
+    subtype = 'FACTOR', min = 1, max = 500,
+    default = 10,
+    description = 'adjusts Anti aliasing based on the size of the brush',
+    update = brush_radiusSetAA
     )
     
     @staticmethod
@@ -378,6 +424,7 @@ class TexturePaintHelper(Menu):
             
         group.separator()
         group.prop(brush, "hardness")
+        group.prop(brush, "radius")
 
         col.separator()
 
@@ -409,7 +456,10 @@ class TexturePaintHelper(Menu):
                           mat, "texture_paint_images",
                           mat, "paint_active_slot", rows=2)
             group.operator_menu_enum("paint.add_texture_paint_slot", "type", text="Add Paint Slot")
-
+        
+        userpref = context.user_preferences
+        system = userpref.system
+        group.prop(system, "use_mipmaps") 
 
     def draw(self, context):
         layout = self.layout
