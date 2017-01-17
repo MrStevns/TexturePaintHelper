@@ -45,12 +45,27 @@ def register():
     
     wm = bpy.context.window_manager
 
+    def kmi_props_setattr(kmi_props, attr, value):
+        try:
+            setattr(kmi_props, attr, value)
+        except AttributeError:
+            print("Warning: property '%s' not found in keymap item '%s'" %
+                  (attr, kmi_props.__class__.__name__))
+        except Exception as e:
+            print("Warning: %r" % e)
+
     km = wm.keyconfigs.addon.keymaps.new(name='Image Paint', space_type='EMPTY')
     kmi = km.keymap_items.new("wm.call_menu_pie", default_keybind, 'PRESS', ctrl=False, shift=False)
     kmi.properties.name = "paint.image_paint"
 
     kmi = km.keymap_items.new("paint.pencil_brush", 'P', 'PRESS', ctrl=False, shift=False)
     kmi = km.keymap_items.new("paint.erase_brush", 'E', 'PRESS', ctrl=False, shift=False)
+    kmi = km.keymap_items.new("wm.radial_control", 'F', 'PRESS', ctrl=False, shift=False)
+    kmi_props_setattr(kmi.properties, 'data_path_primary', 'tool_settings.image_paint.brush.radius')
+    kmi_props_setattr(kmi.properties, 'rotation_path', 'tool_settings.image_paint.brush.mask_texture_slot.angle')
+    kmi_props_setattr(kmi.properties, 'color_path', 'tool_settings.image_paint.brush.cursor_color_add')
+    kmi_props_setattr(kmi.properties, 'fill_color_path', 'tool_settings.image_paint.brush.color')
+    kmi_props_setattr(kmi.properties, 'zoom_path', 'space_data.zoom')
 
     addon_keymaps.append(km)
 

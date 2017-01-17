@@ -50,82 +50,64 @@ class PencilBrush(bpy.types.Operator):
         context.tool_settings.image_paint.brush = pencilBrush
         return {'FINISHED'}
 
-# class VIEW3D_OT_process_input(bpy.types.Operator):
-    # """Process input while Control key is pressed."""
-    # bl_idname = 'view3d.process_input'
-    # bl_label = 'Process Input'
-    # bl_options = {'REGISTER'}
-
-    # def execute(self, context):
-    #     # path to the folder where the icon is located
-    #     # the path is calculated relative to this py file inside the addon folder
-    #     brushIconPath = os.path.join(os.path.dirname(__file__), "icons/")
-
-    #     # get a list of erase alpha brushes
-    #     erase_brushes = [b for b in bpy.data.brushes
-    #             if b.use_paint_image and b.blend == 'ERASE_ALPHA']
-    #     if len(erase_brushes):
-    #         # always choose the first
-    #         use_brush = erase_brushes[0]
-    #     else:
-    #         # Create brush and set its properties
-    #         use_brush = bpy.data.brushes.new('EraseBrush')
-    #         use_brush.blend = 'ERASE_ALPHA'
-    #         use_brush.use_custom_icon = True
-    #         use_brush.icon_filepath = brushIconPath + "erase_brush.png"
-    #         use_brush.use_pressure_strength = False
-    #         use_brush.strength = 1.0
-
-    #     context.scene.tool_settings.unified_paint_settings.use_pressure_size = False
-    #     #eraseBrush = bpy.data.brushes["EraseBrush"]
-    #     #context.tool_settings.image_paint.brush = use_brush
-    #     #return {'FINISHED'}
-    #     return {'RUNNING_MODAL'}
-
-    # def modal(self, context, event):
-    #     starttime = time.time()
-    #     pressed = True
-    #     if event.type == 'E':
-    #         #pressed = False
-    #         print("button held")
-    #         eraseBrush = bpy.data.brushes["EraseBrush"]
-    #         context.tool_settings.image_paint.brush = eraseBrush
-    #         return {'FINISHED'}
-    #     else:
-    #         pressed = False
-    #         print("button released")
-    #         pencilBrush = bpy.data.brushes["TexDraw"]
-    #         context.tool_settings.image_paint.brush = pencilBrush
-    #         return {'FINISHED'}
-
-
-            # timer = starttime - time.time()
-            # #print(timer)
-            # self.release = event.value == 'RELEASE' 
-            # if self.release:
-            #     eraseBrush = bpy.data.brushes["EraseBrush"]
-            #     context.tool_settings.image_paint.brush = eraseBrush
-            #     return {'FINISHED'}
-
-            # elif event.type == 'B' & event.value == 'PRESS' & event.value != 'RELEASE':
-            #     pass # Input processing code.
-            #     pencilBrush = bpy.data.brushes["TexDraw"]
-            #     context.tool_settings.image_paint.brush = pencilBrush
-            #     return {'FINISHED'}
-            #print("does it work?")
-        #timer = 0
-        #return {'PASS_THROUGH'}
-
-    # def invoke(self, context, event):
-    #     context.window_manager.modal_handler_add(self)
-    #     return self.execute(context)
-
-class TexturePaintHelper(Menu):
-    # label is displayed at the center of the pie menu.
-    bl_label = "Texture paint"
-    bl_idname = "paint.image_paint"
+class brushMods(bpy.types.Operator):
+    bl_label = "Radial brush update"
+    bl_idname = "brush.radial_radius"
     n = 0
     stepper = 0.005
+
+    def brush_radiusSetAA(self, context):
+        toolsettings = bpy.context.tool_settings 
+        mode = bpy.context.mode
+        if mode == 'PAINT_TEXTURE' or aType == 'IMAGE_EDITOR':
+            brush = toolsettings.image_paint.brush
+        if mode == 'SCULPT':
+           brush = toolsettings.sculpt.brush
+        if mode == 'PAINT_WEIGHT':
+            brush = toolsettings.weight_paint.brush
+        if mode == 'PAINT_VERTEX':
+            brush = toolsettings.vertex_paint.brush  
+        uniPaintSettings = context.tool_settings.unified_paint_settings
+        
+        bpy.ops.brush.curve_preset(shape='LINE')
+        
+        if brushMods.n < brush.radius - 50:
+            brushMods.n = brushMods.n + 0.5
+            print(brushMods.n)
+        else:
+            brushMods.n = brush.radius +2.5
+        valTopX = float(brush.radius/brushMods.n)   
+        if valTopX < 0.990:
+            valMidX = valTopX + brushMods.stepper
+            #TODO removed in next release
+            #valMidY = 0.55
+            valMidY = 0.95
+        else:
+            valMidY = 0
+            valMidX = 1.0
+            valTopX = 0.999
+            brushMods.stepper = 0
+
+        #TODO: enclose to pencil brush
+        ##  add new brush for water painting
+        ### Figure out how to execute new brushes on start
+        ####      
+
+        bpy.data.brushes[brush.name].curve.curves[0].points.new(valTopX, 1.0)
+        bpy.data.brushes[brush.name].curve.curves[0].points.new(valMidX, valMidY)
+
+        bpy.data.brushes[brush.name].curve.update()
+
+        uniPaintSettings.size = brush.radius
+
+    bpy.types.Brush.radius = bpy.props.IntProperty(
+    name = 'AA adjustness to brush size',
+    subtype = 'PIXEL', min = 1, max = 500, 
+    default = 10,
+    description = 'adjusts Anti aliasing based on the size of the brush',
+    update = brush_radiusSetAA
+    )
+
     def brush_hardness_updater(self,context):
         aType = bpy.context.area.type
         toolsettings = bpy.context.tool_settings 
@@ -150,42 +132,6 @@ class TexturePaintHelper(Menu):
         bpy.ops.brush.curve_preset(shape='LINE')
         bpy.data.brushes[brush.name].curve.curves[0].points.new(valX, valY)
         bpy.data.brushes[brush.name].curve.update()
-
-    def brush_radiusSetAA(self, context):
-        toolsettings = bpy.context.tool_settings 
-        mode = bpy.context.mode
-        if mode == 'PAINT_TEXTURE' or aType == 'IMAGE_EDITOR':
-            brush = toolsettings.image_paint.brush
-        if mode == 'SCULPT':
-           brush = toolsettings.sculpt.brush
-        if mode == 'PAINT_WEIGHT':
-            brush = toolsettings.weight_paint.brush
-        if mode == 'PAINT_VERTEX':
-            brush = toolsettings.vertex_paint.brush  
-        uniPaintSettings = context.tool_settings.unified_paint_settings
-        
-        bpy.ops.brush.curve_preset(shape='LINE')
-        
-        if TexturePaintHelper.n < brush.radius - 50:
-            TexturePaintHelper.n = TexturePaintHelper.n + 0.5
-            print(TexturePaintHelper.n)
-        else:
-            TexturePaintHelper.n = brush.radius +2.5
-        valTopX = float(brush.radius/TexturePaintHelper.n)   
-        if valTopX < 0.990:
-            valMidX = valTopX + TexturePaintHelper.stepper
-            valMidY = 0.55
-        else:
-            valMidY = 0
-            valMidX = 1.0
-            valTopX = 0.999
-            TexturePaintHelper.stepper = 0
-
-        bpy.data.brushes[brush.name].curve.curves[0].points.new(valTopX, 1.0)
-        bpy.data.brushes[brush.name].curve.curves[0].points.new(valMidX, valMidY)
-
-        bpy.data.brushes[brush.name].curve.update()
-        uniPaintSettings.size = brush.radius
     
     bpy.types.Brush.hardness = bpy.props.IntProperty(
     name = 'Brush Hardness',
@@ -195,14 +141,11 @@ class TexturePaintHelper(Menu):
     update= brush_hardness_updater
     )
 
-    bpy.types.Brush.radius = bpy.props.IntProperty(
-    name = 'AA adjustness to brush size',
-    subtype = 'FACTOR', min = 1, max = 500,
-    default = 10,
-    description = 'adjusts Anti aliasing based on the size of the brush',
-    update = brush_radiusSetAA
-    )
-    
+class TexturePaintHelper(Menu):
+    # label is displayed at the center of the pie menu.
+    bl_label = "Texture paint"
+    bl_idname = "paint.image_paint"
+
     @staticmethod
     def paint_settings(context):
         toolsettings = context.tool_settings
@@ -419,12 +362,11 @@ class TexturePaintHelper(Menu):
         self.prop_unified_strength(group, context, brush, "use_pressure_strength")
         
         if capabilities.has_radius:
-            self.prop_unified_size(group, context, brush, "size", slider=True, text="Radius")
             self.prop_unified_size(group, context, brush, "use_pressure_size")
             
         group.separator()
+        group.prop(brush, "radius", slider=True, text="Radius")
         group.prop(brush, "hardness")
-        group.prop(brush, "radius")
 
         col.separator()
 
