@@ -2,35 +2,12 @@ import bpy
 import os
 from bpy.types import Menu, UnifiedPaintSettings
 from bpy.props import IntProperty
-from mathutils import Vector
 
-class EraseBrushOP(bpy.types.Operator):
-    bl_label = "Add erase brush to brushes"
+class EraseBrush(bpy.types.Operator):
+    bl_label = "Select erase brush"
     bl_idname = "paint.erase_brush"
     
     def execute(self, context):
-        
-        # path to the folder where the icon is located
-        # the path is calculated relative to this py file inside the addon folder
-        brushIconPath = os.path.join(os.path.dirname(__file__), "icons/")
-
-        # get a list of erase alpha brushes
-        erase_brushes = [b for b in bpy.data.brushes
-                if b.use_paint_image and b.blend == 'ERASE_ALPHA']
-        if len(erase_brushes):
-            # always choose the first
-            use_brush = erase_brushes[0]
-        else:
-            # Create brush and set its properties
-            use_brush = bpy.data.brushes.new('EraseBrush')
-            use_brush.blend = 'ERASE_ALPHA'
-            use_brush.use_custom_icon = True
-            use_brush.icon_filepath = brushIconPath + "erase_brush.png"
-            use_brush.use_pressure_strength = False
-            use_brush.strength = 1.0
-
-
-        context.scene.tool_settings.unified_paint_settings.use_pressure_size = False
 
         brushInUse = context.tool_settings.image_paint.brush
         if brushInUse == bpy.data.brushes["TexDraw"]:
@@ -55,6 +32,11 @@ class brushMods(bpy.types.Operator):
     bl_idname = "brush.radial_radius"
     n = 0
     stepper = 0.005
+    val1 = 0
+    val2 = 0
+    val3 = 0
+    valMidX = 0
+    init = True
 
     def brush_radiusSetAA(self, context):
         toolsettings = bpy.context.tool_settings 
@@ -70,40 +52,61 @@ class brushMods(bpy.types.Operator):
         uniPaintSettings = context.tool_settings.unified_paint_settings
         
         bpy.ops.brush.curve_preset(shape='LINE')
-        
-        if brushMods.n < brush.radius - 50:
-            brushMods.n = brushMods.n + 0.5
-            print(brushMods.n)
+        decrementer = brushMods.n
+        radius = brush.radius
+        valTopYn = brushMods.val2
+        stepper = brushMods.stepper
+        valTopXn = brushMods.val1
+        valMidXn = brushMods.valMidX
+        init = brushMods.init
+
+        decrementer = radius +2.5
+
+        if decrementer < radius - 50:
+            decrementer = decrementer + 0.5
+
+        #We only care about AA when hardness is above 90%
+        if brush.hardness > 90:
+            valTopX = float(radius/decrementer)
+            valMidY = 1.3 - valTopX 
+            if valTopYn < 0.5:
+                valTopYn = 0.95
         else:
-            brushMods.n = brush.radius +2.5
-        valTopX = float(brush.radius/brushMods.n)   
+            valTopX = valTopXn 
+            valTopY = valTopYn
+            valMidY = valTopYn - 0.030
+
+        valMidX = valTopX + stepper + 0.030
         if valTopX < 0.990:
-            valMidX = valTopX + brushMods.stepper
-            #TODO removed in next release
-            #valMidY = 0.55
-            valMidY = 0.95
+            if valMidX >= valTopX + 0.030:
+                valMidXn = valTopX + 0.030
+            else:
+                valMidXn = valMidX
+
+            if valMidX > 0.99:
+                valMidXn = 0.998
         else:
             valMidY = 0
             valMidX = 1.0
+            valMidXn = 1.0
             valTopX = 0.999
-            brushMods.stepper = 0
+            valTopYn = 1.0
+            stepper = 0
 
-        #TODO: enclose to pencil brush
-        ##  add new brush for water painting
-        ### Figure out how to execute new brushes on start
-        ####      
-
-        bpy.data.brushes[brush.name].curve.curves[0].points.new(valTopX, 1.0)
-        bpy.data.brushes[brush.name].curve.curves[0].points.new(valMidX, valMidY)
-
+        #TODO: add new brush for water painting
+        ####
+        
+        bpy.data.brushes[brush.name].curve.curves[0].points.new(valTopX, valTopYn)
+        bpy.data.brushes[brush.name].curve.curves[0].points.new(valMidXn, valMidY)
         bpy.data.brushes[brush.name].curve.update()
 
-        uniPaintSettings.size = brush.radius
+        uniPaintSettings.size = radius
+        brushMods.valMidX = valMidX
 
     bpy.types.Brush.radius = bpy.props.IntProperty(
-    name = 'AA adjustness to brush size',
+    name = 'Adjust AA relative to brush size',
     subtype = 'PIXEL', min = 1, max = 500, 
-    default = 10,
+    default = 50,
     description = 'adjusts Anti aliasing based on the size of the brush',
     update = brush_radiusSetAA
     )
@@ -112,6 +115,7 @@ class brushMods(bpy.types.Operator):
         aType = bpy.context.area.type
         toolsettings = bpy.context.tool_settings 
         mode = bpy.context.mode
+        brushMods.brush_radiusSetAA(self, context)
         if mode == 'PAINT_TEXTURE' or aType == 'IMAGE_EDITOR':
             brush = toolsettings.image_paint.brush
         if mode == 'SCULPT':
@@ -120,23 +124,36 @@ class brushMods(bpy.types.Operator):
             brush = toolsettings.weight_paint.brush
         if mode == 'PAINT_VERTEX':
             brush = toolsettings.vertex_paint.brush    
-        valX = float(brush.hardness/100)
-        valY = float(brush.hardness/100)
-        if valX < 0.30 and valY < 0.30:
-            valX = 0.30
-            valY = 0.30
-        if valX > 0.9020:
-            valX = 0.9020
-        if valY >= 1.0:
-            valY = 1.0
+
+        hardness = brush.hardness + 100
+        valTopX = float(hardness/200)
+        valTopY = float(hardness/200)
+        valMidX = valTopX + 0.030
+        valMidY = valTopY - 0.030
+
+        if valTopX < 0.40 and valTopY < 0.40:
+            valTopX = 0.40
+            valTopY = 0.40
+            valMidX = 0.40 + 0.050
+            valMidY = 0.40
+            valMidY = valTopY - 0.050
+        if valTopX > 0.9020:
+            valTopX = 0.9020
+            valMidX = valTopX + 0.050
+        if valTopY >= 1.0:
+            valTopY = 1.0
         bpy.ops.brush.curve_preset(shape='LINE')
-        bpy.data.brushes[brush.name].curve.curves[0].points.new(valX, valY)
+        bpy.data.brushes[brush.name].curve.curves[0].points.new(valTopX, valTopY)
+        bpy.data.brushes[brush.name].curve.curves[0].points.new(valMidX, valMidY)
         bpy.data.brushes[brush.name].curve.update()
+
+        brushMods.val1 = valTopX
+        brushMods.val2 = valTopY
     
     bpy.types.Brush.hardness = bpy.props.IntProperty(
     name = 'Brush Hardness',
     subtype = 'PERCENTAGE', min = 0, max = 100,
-    default = 50,
+    default = 100,
     description = 'Changes the softness of the brush via the brush curve',
     update= brush_hardness_updater
     )

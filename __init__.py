@@ -33,15 +33,18 @@ if "bpy" in locals():
     import imp
     unregister()
     imp.reload(TexturePaintHelper)
+    imp.reload(ImportBrushes)
 else:
     import bpy
     from . import TexturePaintHelper
+    from . import ImportBrushes
 
 default_keybind = 'W'
 
 addon_keymaps = []
 def register():
     bpy.utils.register_module(__name__)
+    bpy.app.handlers.load_post.append(ImportBrushes.eraseBrush)
     
     wm = bpy.context.window_manager
 
