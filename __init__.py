@@ -19,7 +19,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 bl_info = {
     'name': 'TexturePaintHelper',
     'author': 'Oliver Larsen aka. CandyFace',
-    'version': (0, 1, 6),
+    'version': (0, 2, 0),
     'blender': (2, 78, 0),
     'location': 'Texture_Paint > Press W > Pie menu',
     'description': 'A texture pie right at your finger tips!',
